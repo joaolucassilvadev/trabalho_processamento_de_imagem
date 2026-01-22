@@ -1,0 +1,234 @@
+# =============================================================================
+# Configuração do Sistema de Reconhecimento de Batimentos Cardíacos
+# =============================================================================
+
+# ---- Configurações Gerais ----
+general:
+  project_name: "HeartRate-PPG"
+  version: "1.0.0"
+  random_seed: 42
+  device: "auto"  # auto, cpu, cuda
+
+# ---- Configurações de Captura de Vídeo ----
+video:
+  # Resolução da câmera
+  width: 640
+  height: 480
+  # Taxa de frames por segundo
+  fps: 30
+  # Índice da câmera (0 = câmera padrão)
+  camera_index: 0
+  # Formato de cor
+  color_format: "BGR"  # BGR, RGB
+
+# ---- Configurações de PPG ----
+ppg:
+  # Modo de operação
+  mode: "finger"  # finger, face
+  
+  # Configurações do modo dedo
+  finger:
+    # Canal de cor dominante para análise
+    channel: "red"  # red, green, blue
+    # Região de interesse (percentual da imagem)
+    roi_percentage: 0.6
+  
+  # Configurações do modo facial
+  face:
+    # Região de interesse facial
+    roi_type: "forehead"  # forehead, cheeks, full_face
+    # Usar detector de faces
+    use_face_detection: true
+    # Modelo de detecção facial
+    detector_model: "mediapipe"  # mediapipe, dlib, haar
+
+# ---- Processamento de Sinal ----
+signal_processing:
+  # Taxa de amostragem do sinal PPG (Hz)
+  sampling_rate: 30
+  
+  # Filtro passa-banda (Hz)
+  bandpass_filter:
+    low_cutoff: 0.7     # ~42 BPM
+    high_cutoff: 4.0    # ~240 BPM
+    order: 4
+  
+  # Remoção de tendência
+  detrend:
+    enabled: true
+    method: "linear"  # linear, polynomial
+  
+  # Normalização
+  normalization:
+    enabled: true
+    method: "z-score"  # z-score, min-max
+  
+  # Janela de análise
+  window:
+    size_seconds: 10    # Tamanho da janela em segundos
+    overlap_ratio: 0.5  # Sobreposição entre janelas
+  
+  # Suavização
+  smoothing:
+    enabled: true
+    window_size: 5
+
+# ---- Configurações do Modelo ----
+model:
+  # Tipo de modelo
+  type: "cnn"  # cnn, lstm, hybrid
+  
+  # CNN 1D
+  cnn:
+    input_length: 300   # Número de amostras de entrada
+    conv_filters: [32, 64, 128]
+    kernel_sizes: [5, 5, 3]
+    pool_sizes: [2, 2, 2]
+    dense_units: [128, 64]
+    dropout_rate: 0.3
+    activation: "relu"
+  
+  # LSTM
+  lstm:
+    input_length: 300
+    lstm_units: [64, 32]
+    dense_units: [32]
+    dropout_rate: 0.2
+    bidirectional: true
+  
+  # Híbrido CNN-LSTM
+  hybrid:
+    input_length: 300
+    conv_filters: [32, 64]
+    kernel_sizes: [5, 3]
+    lstm_units: [32]
+    dense_units: [32]
+    dropout_rate: 0.3
+
+# ---- Treinamento ----
+training:
+  # Hiperparâmetros
+  epochs: 100
+  batch_size: 32
+  learning_rate: 0.001
+  
+  # Otimizador
+  optimizer: "adam"  # adam, sgd, rmsprop
+  
+  # Learning rate scheduler
+  scheduler:
+    enabled: true
+    type: "reduce_on_plateau"
+    factor: 0.5
+    patience: 10
+  
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 20
+    monitor: "val_loss"
+    min_delta: 0.0001
+  
+  # Checkpoints
+  checkpoints:
+    enabled: true
+    save_best_only: true
+    monitor: "val_mae"
+  
+  # Divisão dos dados
+  data_split:
+    train_ratio: 0.7
+    val_ratio: 0.15
+    test_ratio: 0.15
+  
+  # Data augmentation
+  augmentation:
+    enabled: true
+    noise_level: 0.05
+    time_shift: 10
+    scale_range: [0.95, 1.05]
+
+# ---- Inferência ----
+inference:
+  # Modelo a usar
+  model_path: "models/saved/best_model.h5"
+  
+  # Configurações TensorFlow Lite
+  tflite:
+    enabled: true
+    model_path: "models/saved/model.tflite"
+    quantization: "dynamic"  # none, dynamic, float16, int8
+  
+  # Buffer de frames
+  buffer_size: 300  # Número de frames no buffer
+  
+  # Intervalo de atualização (segundos)
+  update_interval: 1.0
+  
+  # Suavização da saída
+  output_smoothing:
+    enabled: true
+    window_size: 5
+  
+  # Limites de frequência cardíaca válida
+  heart_rate_limits:
+    min_bpm: 40
+    max_bpm: 200
+
+# ---- Dataset ----
+dataset:
+  # Caminho dos dados
+  raw_path: "data/raw"
+  processed_path: "data/processed"
+  
+  # Dataset UBFC-rPPG
+  ubfc:
+    path: "data/raw/UBFC-rPPG"
+    fps: 30
+    subjects: 42
+  
+  # Dados sintéticos
+  synthetic:
+    enabled: true
+    n_samples: 5000
+    heart_rate_range: [50, 120]
+    noise_levels: [0.05, 0.1, 0.15]
+
+# ---- Visualização ----
+visualization:
+  # Exibir janelas
+  show_video: true
+  show_signal: true
+  show_spectrum: true
+  
+  # Cores do tema
+  theme:
+    background: "#1e1e1e"
+    signal_color: "#00ff00"
+    hr_color: "#ff0000"
+    text_color: "#ffffff"
+  
+  # Tamanho das janelas
+  window_sizes:
+    video: [640, 480]
+    signal: [800, 200]
+
+# ---- Logging ----
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "logs/heart_rate.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# ---- Métricas ----
+metrics:
+  # Métricas a calcular
+  calculate:
+    - mae      # Mean Absolute Error
+    - rmse     # Root Mean Square Error
+    - mape     # Mean Absolute Percentage Error
+    - pearson  # Correlação de Pearson
+  
+  # Limites aceitáveis
+  thresholds:
+    mae_max: 5.0    # BPM
+    rmse_max: 7.0   # BPM
